@@ -285,6 +285,8 @@ extern "C" {
 
 /* usb.c */
 usb_dev_handle *usb_open(struct usb_device *dev);
+usb_dev_handle *usb_open2(struct usb_device *dev, int usbfd);
+
 int usb_close(usb_dev_handle *dev);
 int usb_get_string(usb_dev_handle *dev, int index, int langid, char *buf,
 	size_t buflen);
@@ -325,6 +327,8 @@ int usb_detach_kernel_driver_np(usb_dev_handle *dev, int interface);
 char *usb_strerror(void);
 
 void usb_init(void);
+void usb_init2(int usbfd, const char * uspfs_path_input);
+
 void usb_set_debug(int level);
 int usb_find_busses(void);
 int usb_find_devices(void);

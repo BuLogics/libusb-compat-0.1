@@ -154,6 +154,25 @@ API_EXPORTED void usb_init(void)
 	}
 }
 
+API_EXPORTED void usb_init2(int usbfd, const char * uspfs_path_input)
+{
+	int r;
+	usbi_dbg("");
+
+	if (!ctx) {
+		r = libusb_init2(&ctx, uspfs_path_input);
+		if (r < 0) {
+			usbi_err("initialization failed!");
+			return;
+		}
+
+		/* usb_set_debug can be called before usb_init */
+		if (usb_debug)
+			libusb_set_debug(ctx, 3);
+	}
+}
+
+
 API_EXPORTED void usb_set_debug(int level)
 {
 	usb_debug = level;
@@ -658,6 +677,32 @@ API_EXPORTED usb_dev_handle *usb_open(struct usb_device *dev)
 		return NULL;
 
 	r = libusb_open((libusb_device *) dev->dev, &udev->handle);
+	if (r < 0) {
+		if (r == LIBUSB_ERROR_ACCESS) {
+			usbi_info("Device open failed due to a permission denied error.");
+			usbi_info("libusb requires write access to USB device nodes.");
+		}
+		usbi_err("could not open device, error %d", r);
+		free(udev);
+		errno = libusb_to_errno(r);
+		return NULL;
+	}
+
+	udev->last_claimed_interface = -1;
+	udev->device = dev;
+	return udev;
+}
+
+API_EXPORTED usb_dev_handle *usb_open2(struct usb_device *dev, int usbfd)
+{
+	int r;
+	usbi_dbg("");
+
+	usb_dev_handle *udev = malloc(sizeof(*udev));
+	if (!udev)
+		return NULL;
+
+	r = libusb_open2((libusb_device *) dev->dev, &udev->handle, usbfd);
 	if (r < 0) {
 		if (r == LIBUSB_ERROR_ACCESS) {
 			usbi_info("Device open failed due to a permission denied error.");
