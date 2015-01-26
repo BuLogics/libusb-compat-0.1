@@ -26,6 +26,10 @@
 
 #include <libusb.h>
 
+#ifdef __ANDROID__
+#include <android/log.h>
+#endif
+
 #include "usb.h"
 #include "usbi.h"
 
@@ -40,7 +44,13 @@ enum usbi_log_level {
 };
 
 #ifdef ENABLE_LOGGING
+
+#ifdef __ANDROID__
+#define _usbi_log(level, fmt...) usbi_log_android(level, __FUNCTION__, fmt)
+#else
 #define _usbi_log(level, fmt...) usbi_log(level, __FUNCTION__, fmt)
+#endif
+
 #else
 #define _usbi_log(level, fmt...)
 #endif
@@ -93,6 +103,47 @@ static int libusb_to_errno(int result)
 	}
 }
 
+
+#ifdef __ANDROID__
+
+static void usbi_log_android(enum usbi_log_level level, const char *function,
+	const char *format, ...)
+{
+
+	android_LogPriority androidLevel;
+	switch (level) {
+	case LOG_LEVEL_INFO:
+		androidLevel = ANDROID_LOG_INFO;
+		break;
+	case LOG_LEVEL_WARNING:
+		androidLevel = ANDROID_LOG_WARN;
+		break;
+	case LOG_LEVEL_ERROR:
+		androidLevel = ANDROID_LOG_ERROR;
+		break;
+	case LOG_LEVEL_DEBUG:
+		androidLevel = ANDROID_LOG_DEBUG;
+		break;
+	default:
+		androidLevel = ANDROID_LOG_INFO;
+		break;
+	}
+
+	va_list args;
+	va_start (args, format);
+
+	int formatLen = strlen("libusb-compat: ") + strlen(function) + 2;
+	char *tag = malloc(formatLen);
+	sprintf(tag, "libusb-compat: %s:", function);
+  __android_log_vprint(androidLevel, tag, format, args);
+	va_end (args);
+
+  free(tag);
+}
+
+#endif
+
+
 static void usbi_log(enum usbi_log_level level, const char *function,
 	const char *format, ...)
 {
@@ -127,9 +178,9 @@ static void usbi_log(enum usbi_log_level level, const char *function,
 		break;
 	}
 
+	va_start (args, format);
 	fprintf(stream, "libusb-compat %s: %s: ", prefix, function);
 
-	va_start (args, format);
 	vfprintf(stream, format, args);
 	va_end (args);
 
